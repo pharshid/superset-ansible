@@ -1,0 +1,108 @@
+---
+- name: Update apt cache
+  apt:
+    upgrade: true
+    update_cache: true
+    cache_valid_time: 86400
+
+- name: Ensure a list of packages installed
+  apt:
+    name:
+      - build-essential
+      - libssl-dev
+      - libffi-dev
+      - libsasl2-dev
+      - libldap2-dev
+    state: present
+    update_cache: true
+
+- name: Install prerequisites
+  apt:
+    name: software-properties-common
+    state: present
+  become: true
+
+- name: Add deadsnakes repo
+  apt_repository: repo="ppa:deadsnakes/ppa"
+  become: true
+
+- name: Install python
+  apt:
+    name:
+      - "python3.7-dev"
+      - "python3-pip"
+      - "virtualenv"
+    state: present
+  become: true
+
+- name: Upgrade pip
+  pip:
+    name: pip
+    state: latest
+  tags:
+    - skip_ansible_lint
+
+- name: Install setuptools
+  pip:
+    name: setuptools
+    state: present
+
+- name: Create virtualenv and install dependencies
+  pip:
+    name: virtualenv
+    virtualenv: "{{ root_dir }}/venv2"
+    virtualenv_python: "python3.7"
+
+- name: install superset with pip
+  pip:
+    name: apache-superset==1.3.0
+    virtualenv: "{{ root_dir }}/venv2"
+    state: present
+
+- name: install flask-WTF 0.14.2
+  pip:
+    name: Flask-WTF==0.14.2
+    virtualenv: "{{ root_dir }}/venv2"
+    state: present
+
+- name: install werkzeug==0.16.0
+  pip:
+    name: werkzeug==0.16.0
+    virtualenv: "{{ root_dir }}/venv2"
+    state: present
+
+- name: initialize superset database
+  command: /srv/superset-ansible/venv2/bin/superset db upgrade
+  changed_when: true
+
+- name: create an admin user
+  ansible.builtin.expect:
+    command: /srv/superset-ansible/venv2/bin/superset fab create-admin
+    responses:
+      "Username \\[admin\\]:": "admin"
+      "User first name \\[admin\\]": "admin"
+      "User last name \\[user\\]": "user"
+      "Email \\[admin@fab.org\\]:": "admin@fab.org"
+      "Password:": "test"
+      "Repeat for confirmation:": "test"
+  # you don't want to show passwords in your logs
+  # no_log: true
+
+- name: Load some data to play with
+  command: /srv/superset-ansible/venv2/bin/superset load_examples
+  changed_when: true
+  tags:
+    - deploy
+
+- name: Create default roles and permissions
+  command: /srv/superset-ansible/venv2/bin/superset init
+  changed_when: true
+  tags:
+    - deploy
+
+- name: start a development web server on port 8088
+  command: /srv/superset-ansible/venv2/bin/superset run -p 8088 --with-threads --reload --debugger
+  changed_when: true
+  tags:
+    - deploy
+...

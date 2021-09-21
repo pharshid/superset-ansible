@@ -1,0 +1,5 @@
+project_name: superset-ansible
+root_dir: "/srv/{{ project_name }}"
+checkout_dir: "{{ root_dir }}/{{ project_name }}"
+project_dir: "{{ checkout_dir }}"
+venv_dir: "{{ root_dir }}/venv2/bin/"
